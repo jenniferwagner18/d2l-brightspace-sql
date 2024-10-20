@@ -1,2 +1,2 @@
-# d2l-brightspace-sql
-SQL for Analytics Builder (Quicksight) to query D2L Brightspace data sets
+# SQL Queries for D2L Brightspace Data Sets
+SQL for Analytics Builder (Quicksight) to query D2L Brightspace data sets. Previously, the data sets could be queried in Domo Analytics (also known as Insights Report Builder) using Magic ETL data flows. D2L has transitioned to Quicksight and renamed it Analytics Builder. These SQL queries will mostly be based on the existing [ETL data flows repository](https://github.com/jenniferwagner18/brightspace-etl-dataflows).
