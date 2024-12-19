@@ -43,17 +43,6 @@ enrollments AS (
     WHERE
         rolename IN ('Student', 'Member')
 ),
-tools AS (
-    SELECT  
-        objecttype,
-        objectid,
-        outcomeid,
-        registryid
-    FROM
-        brightspace_data_sets_[your_schema_id].outcomealignmenttotoolobject_9_9_3
-    WHERE
-        isdeleted = FALSE
-),
 assessed AS (
     SELECT
         outcomeid,
@@ -75,7 +64,7 @@ SELECT DISTINCT
     details.description AS standard,
     details.notation AS shortcode,
     COALESCE(levels.name,'Not Evaluated') AS levels,
-    users.username AS netid,
+    users.username,
     users.firstname,
     users.lastname
 FROM 
@@ -86,9 +75,6 @@ INNER JOIN registries
     ON owners.registryid = registries.registryid 
 INNER JOIN details
     ON registries.outcomeid = details.outcomeid
-INNER JOIN tools
-    ON registries.outcomeid = tools.outcomeid 
-    AND registries.registryid = tools.registryid
 LEFT JOIN enrollments
     ON CAST (owners.ownerid AS integer) = enrollments.orgunitid
 LEFT JOIN assessed
@@ -99,4 +85,4 @@ LEFT JOIN brightspace_data_sets_[your_schema_id].outcomesscaleleveldefinition_9_
     ON assessed.explicitlyenteredscalelevelid = levels.scalelevelid
 LEFT JOIN brightspace_data_sets_[your_schema_id].users_9_9_3 as users
     ON enrollments.userid = users.userid
-ORDER BY  owners.ownerid, users.lastname, users.firstname, details.notation
+ORDER BY owners.ownerid, users.lastname, users.firstname, details.notation
