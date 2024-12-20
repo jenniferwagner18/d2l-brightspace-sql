@@ -1,4 +1,4 @@
-/* Recreates Mastery View (i.e. only include Standards that are aligned to activities with overall level achieved for each student) */
+/* Recreates Mastery View (i.e. only includes Standards that are aligned to activities with overall level achieved for each student) */
 
 WITH owners AS (
     SELECT
@@ -30,7 +30,7 @@ details AS (
         brightspace_data_sets_[your_schema_id].outcomedetails_9_9_3
     WHERE 
         isdeleted = FALSE
-/* OPTIONAL: Add LIKE if filtering for certain short codes */
+/* OPTIONAL: Add LIKE statements if filtering for certain short codes */
  /*     AND notation LIKE 'HCM%' */
 ),
 enrollments AS (
@@ -41,7 +41,7 @@ enrollments AS (
     FROM
         brightspace_data_sets_[your_schema_id].userenrollments_9_9_3
     WHERE
-        rolename IN ('Student', 'Member')
+        rolename IN ('Student', 'Member') /* Depends on your institution's roles; e.g. rolename = 'Learner' */
 ),
 assessed AS (
     SELECT
