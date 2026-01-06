@@ -16,6 +16,7 @@ WITH
       userid,
       rubricid,
       score,
+      isscoreoverridden,
       feedback,
       criterionid,
       levelachievedid
@@ -69,6 +70,7 @@ WITH
       RubricAssessment.rubricid,
       RubricAssessment.score AS overallscore,
       RubricAssessCriteria.score AS criterionscore,
+      RubricAssessCriteria.isscoreoverridden AS scoreoverride,
       RubricAssessCriteria.feedback,
       RubricAssessCriteria.criterionid,
       RubricCritLevels.description,
@@ -87,11 +89,10 @@ INNER JOIN RubricAssessCriteria
     AND RubricAssessment.userid = RubricAssessCriteria.userid
 INNER JOIN RubricCritLevels
     ON RubricAssessCriteria.criterionid = RubricCritLevels.criterionid
+    AND RubricAssessCriteria.levelachievedid = RubricCritLevels.levelid
 INNER JOIN RubricObjCriteria
     ON RubricCritLevels.criterionid = RubricObjCriteria.criterionid
 INNER JOIN RubricObjLevels
     ON RubricAssessCriteria.levelachievedid = RubricObjLevels.levelid
 INNER JOIN Users
     ON RubricAssessment.userid = Users.userid
-WHERE
-    RubricAssessCriteria.score = RubricCritLevels.value
