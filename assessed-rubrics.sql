@@ -1,6 +1,17 @@
-/* Criteria levels and scores plus overall score, with instructor feedback for each level (if any), on rubrics for each student */
+/* Criteria and overall levels and scores, with instructor feedback for each criterion level (if any), on rubrics for each student. 
+Overall written feedback is not logged in these data sets. */
 
 WITH
+  RubricObj AS (
+    SELECT
+      orgunitid,
+      rubricid,
+      name
+    FROM
+      brightspace_data_sets_[your_schema_id].rubricobjects_10_8_5
+    WHERE
+      isdeleted = FALSE
+  ),
   RubricAssessment AS (
     SELECT
       orgunitid,
@@ -56,6 +67,15 @@ WITH
     FROM
       brightspace_data_sets_[your_schema_id].rubricobjectlevels_10_8_5
   ),
+  OverallLevels AS (
+    SELECT  
+      rubricid,
+      levelid,
+      name,
+      description
+    FROM
+      brightspace_data_sets_[your_schema_id].rubricobjectlevels_10_8_5
+  ),
   Users AS (
     SELECT
       userid,
@@ -68,12 +88,15 @@ WITH
   SELECT DISTINCT
       RubricAssessment.orgunitid,
       RubricAssessment.rubricid,
+      RubricObj.name AS rubricname,
       RubricAssessment.score AS overallscore,
+      OverallLevels.name AS overalllevel,
+      OverallLevels.description AS overalldescription,
       RubricAssessCriteria.score AS criterionscore,
       RubricAssessCriteria.isscoreoverridden AS scoreoverride,
-      RubricAssessCriteria.feedback,
+      RubricAssessCriteria.feedback AS criterionfeedback,
       RubricAssessCriteria.criterionid,
-      RubricCritLevels.description,
+      RubricCritLevels.description AS criteriondescription,
       RubricObjCriteria.name AS criterionname,
       RubricObjLevels.name AS criterionlevel,
       RubricObjCriteria.sortorder,
@@ -83,7 +106,10 @@ WITH
       Users.firstname,
       Users.lastname
 
-FROM RubricAssessment
+FROM RubricObj
+INNER JOIN RubricAssessment
+    ON RubricAssessment.rubricid = RubricObj.rubricid
+    AND RubricAssessment.orgunitid = RubricObj.orgunitid
 INNER JOIN RubricAssessCriteria 
     ON RubricAssessment.rubricid = RubricAssessCriteria.rubricid
     AND RubricAssessment.userid = RubricAssessCriteria.userid
@@ -94,5 +120,8 @@ INNER JOIN RubricObjCriteria
     ON RubricCritLevels.criterionid = RubricObjCriteria.criterionid
 INNER JOIN RubricObjLevels
     ON RubricAssessCriteria.levelachievedid = RubricObjLevels.levelid
+INNER JOIN OverallLevels
+    ON RubricObjLevels.rubricid = OverallLevels.rubricid
+    AND RubricAssessment.levelachievedid = OverallLevels.levelid
 INNER JOIN Users
     ON RubricAssessment.userid = Users.userid
