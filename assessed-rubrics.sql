@@ -16,6 +16,7 @@ WITH
     SELECT
       orgunitid,
       rubricid,
+      assessmentid,
       userid,
       score,
       levelachievedid
@@ -26,6 +27,7 @@ WITH
     SELECT
       userid,
       rubricid,
+      assessmentid,
       score,
       isscoreoverridden,
       feedback,
@@ -112,7 +114,7 @@ INNER JOIN RubricAssessment
     AND RubricAssessment.orgunitid = RubricObj.orgunitid
 INNER JOIN RubricAssessCriteria 
     ON RubricAssessment.rubricid = RubricAssessCriteria.rubricid
-    AND RubricAssessment.userid = RubricAssessCriteria.userid
+    AND RubricAssessment.assessmentid = RubricAssessCriteria.assessmentid
 INNER JOIN RubricCritLevels
     ON RubricAssessCriteria.criterionid = RubricCritLevels.criterionid
     AND RubricAssessCriteria.levelachievedid = RubricCritLevels.levelid
