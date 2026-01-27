@@ -1,5 +1,4 @@
-/* Criteria and overall levels and scores, with instructor feedback for each criterion level (if any), on rubrics for each student. 
-Overall written feedback is not logged in these data sets. */
+/* Criteria and overall levels and scores, with instructor feedback for each criterion level (if any), on rubrics for each student. Overall written feedback is not logged in the rubric data sets, but rather in the feedback or comment fields of the activity or grades data sets. */
 
 WITH
   RubricObj AS (
