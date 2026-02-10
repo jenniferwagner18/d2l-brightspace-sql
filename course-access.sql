@@ -2,6 +2,8 @@
 
 SELECT
     access.orgunitid,
+    courses.code,
+    courses.name,
     users.username,
     users.firstname,
     users.lastname,
@@ -28,7 +30,9 @@ FROM
 WHERE 
     timestamp IS NOT NULL
 ) AS access
-JOIN brightspace_data_sets_[your_schema_id].users_9_9_3 AS users 
-ON access.userid = users.userid
+JOIN brightspace_data_sets_[your_schema_id].organizationalunits_9_9_3 AS courses 
+    ON access.orgunitid = courses.orgunitid
+JOIN brightspace_data_sets_[your_schema_id].users_9_9_3 AS users    
+    ON access.userid = users.userid
 WHERE access.orgunitid = 1234567 /* optional filter for specific course */
 ORDER BY users.lastname, access.dayaccessed
