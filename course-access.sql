@@ -1,4 +1,5 @@
-/* Course access via browser and Pulse app (one row each day that student accesses course per source) */
+/* Course access via browser and Pulse app (one row each day that student accesses course per source). 
+   Remove both DATE functions and DISTINCT for all Pulse sessions rather than one per day. */
 
 SELECT
     access.orgunitid,
@@ -13,7 +14,7 @@ FROM (
 SELECT
     orgunitid,
     userid,
-    DATE(PARSE_DATETIME(dayaccessed, 'yyyy-MM-dd HH:mm:ss.SSS z')) AS dayaccessed,
+    DATE(CAST(dayaccessed AS timestamp)) AS dayaccessed, /* logged as local org-level timezone */
     'Browser' AS source
 FROM
     brightspace_data_sets_[your_schema_id].courseaccess_9_9_3
@@ -23,7 +24,7 @@ UNION
 SELECT DISTINCT
     orgunitid,
     userid,
-    DATE(PARSE_DATETIME(timestamp, 'yyyy-MM-dd HH:mm:ss.SSS z') AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York') AS dayaccessed,
+    DATE(CAST(REPLACE(timestamp, ' UTC', '') AS timestamp) AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York') AS dayaccessed, /* logged in UTC; change to own timezone */
     source
 FROM
     brightspace_data_sets_[your_schema_id].courseaccesslog_9_9_3
