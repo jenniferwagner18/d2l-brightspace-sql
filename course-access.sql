@@ -1,6 +1,6 @@
 /* Course access via browser and Pulse app (one row each day that student accesses course per source). 
    Remove both DATE functions and DISTINCT for all Pulse sessions rather than one per day. */
-WITH ca AS (
+WITH access AS (
    SELECT
       orgunitid,
       userid,
