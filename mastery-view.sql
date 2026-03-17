@@ -70,20 +70,21 @@ SELECT DISTINCT
 FROM registries
 LEFT JOIN courses
     ON registries.registryid = courses.registryid
-LEFT JOIN details
+INNER JOIN details
     ON registries.outcomeid = details.outcomeid
-LEFT JOIN tools
-    ON registries.outcomeid = tools.outcomeid
-    AND registries.registryid = tools.registryid
-INNER JOIN assessed
-    ON registries.outcomeid = assessed.outcomeid
-    AND registries.registryid = assessed.registryid
-LEFT JOIN brightspace_data_sets_[your_schema_id].outcomesscaleleveldefinition_10_9_5 as levels
-    ON assessed.explicitlyenteredscalelevelid = levels.scalelevelid
 INNER JOIN brightspace_data_sets_[your_schema_id].organizationalunits_10_9_5 as orgunits
     ON courses.orgunitid = orgunits.orgunitid
-INNER JOIN brightspace_data_sets_[your_schema_id].users_10_9_5 as users
-    ON assessed.assesseduserid = users.userid
 INNER JOIN enrollments
-    ON orgunits.orgunitid = enrollments.orgunitid
-    AND assessed.assesseduserid = enrollments.userid
+    ON orgunits.orgunitid = enrollments.orgunitid 
+INNER JOIN brightspace_data_sets_[your_schema_id].users_10_9_5 as users
+    ON enrollments.userid  = users.userid
+INNER JOIN tools
+    ON registries.outcomeid = tools.outcomeid
+    AND registries.registryid = tools.registryid
+LEFT JOIN assessed
+    ON registries.outcomeid = assessed.outcomeid
+    AND registries.registryid = assessed.registryid
+    AND assessed.assesseduserid = users.userid
+LEFT JOIN brightspace_data_sets_[your_schema_id].outcomesscaleleveldefinition_10_9_5 as levels
+    ON assessed.explicitlyenteredscalelevelid = levels.scalelevelid
+
