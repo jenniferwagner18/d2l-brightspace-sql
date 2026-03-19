@@ -77,7 +77,7 @@ SELECT DISTINCT
     notation AS shortcode,
     description AS standard,
     COALESCE(MAX(levelname) OVER (PARTITION BY orgunitid, outcomeid, userid), 'Not Evaluated') AS levels,
-    username AS netid,
+    username,
 	lastname,
 	firstname
 FROM joined
