@@ -1,90 +1,84 @@
 /* Recreates Mastery View (i.e. only includes Standards that are aligned to activities with overall level achieved for each student) */
 
-WITH registries AS (
-    SELECT
-        outcomeid,
-        registryid
-    FROM
-        brightspace_data_sets_[your_schema_id].outcomesinregistries_10_9_5
-),
-courses AS (
-    SELECT
-        orgunitid,
-        registryid
-    FROM 
-        brightspace_data_sets_[your_schema_id].outcomessetcourse_10_9_5
-/* OPTIONAL: Add orgunitids separated by commas (between parentheses) if filtering for certain courses: */ 
-/*    WHERE orgunitid IN (12345678, 12345679, 12345670) */
-),
-details AS (
-    SELECT
-        outcomeid,
-        description, 
-        notation
-    FROM
-        brightspace_data_sets_[your_schema_id].outcomedetails_10_9_5
-/* OPTIONAL: Add LIKE statements if filtering for certain short codes: */
- /*     WHERE notation LIKE 'HCM%' */
-),
-enrollments AS (
-    SELECT
-        orgunitid,
-        rolename, 
-        userid
-    FROM
-        brightspace_data_sets_[your_schema_id].userenrollments_10_9_5
-    WHERE
-        rolename IN ('Student', 'Member') /* filter out Demo Student; depends on your institution's roles; e.g. rolename = 'Learner' */
-),
-tools AS (
-    SELECT  
-        objecttype,
-        objectid,
-        outcomeid,
-        registryid
-    FROM
-        brightspace_data_sets_[your_schema_id].outcomealignmenttotoolobject_10_9_5
+WITH students AS (
+    SELECT DISTINCT
+        ou.orgunitid,
+        ou.code,
+        ou.name,
+        ou.type,
+        courses.registryid,
+        registries.outcomeid,
+        details.notation,
+        details.description,
+        enrollments.userid,
+        users.username,
+        users.firstname,
+        users.lastname
+    FROM [your_schema_id].outcomesinregistries_10_10_6 AS registries
+    JOIN [your_schema_id].outcomessetcourse_10_10_6 AS courses
+        ON registries.registryid = courses.registryid
+    JOIN [your_schema_id].outcomedetails_10_10_6 AS details
+        ON registries.outcomeid = details.outcomeid
+    JOIN [your_schema_id].outcomealignmenttotoolobject_10_10_6 AS tools
+        ON registries.outcomeid = tools.outcomeid
+        AND registries.registryid = tools.registryid
+    JOIN [your_schema_id].userenrollments_10_10_6 AS enrollments
+        ON courses.orgunitid = enrollments.orgunitid
+    JOIN [your_schema_id].organizationalunits_10_10_6 AS ou
+        ON courses.orgunitid = ou.orgunitid
+    JOIN [your_schema_id].users_10_10_6 AS users
+        ON enrollments.userid = users.userid
+    WHERE enrollments.rolename = 'Student' /* depends on your org's rolenames */
+    /* Optional filters for shortcodes and course IDs:
+    AND	details.notation LIKE 'HCM%'
+    AND ou.orgunitid IN (12345678, 12345679, 12345670)
+    */
 ),
 assessed AS (
+	SELECT
+		demo.outcomeid,
+        demo.assesseduserid,
+        demo.explicitlyenteredscalelevelid,
+        demo.registryid,
+        levels.name,
+        ROW_NUMBER() OVER (
+            PARTITION BY 
+               demo.outcomeid,
+                demo.assesseduserid,
+                demo.registryid
+            ORDER BY demo.assesseddate DESC
+        ) AS rn
+	FROM [your_schema_id].outcomesdemonstrations_10_10_6 AS demo
+    INNER JOIN [your_schema_id].outcomesscaleleveldefinition_10_10_6 as levels
+        ON demo.explicitlyenteredscalelevelid = levels.scalelevelid
+	WHERE 
+		demo.alignedobjecttype = 4
+        AND demo.explicitlyenteredscalelevelid IS NOT NULL
+),
+joined AS (
     SELECT
-        outcomeid,
-        registryid,
-        explicitlyenteredscalelevelid,
-        assesseduserid,
-        alignedobjecttype
-    FROM
-        brightspace_data_sets_[your_schema_id].outcomesdemonstrations_10_9_5
-    WHERE 
-        alignedobjecttype = 4
+        students.*,
+        assessed.name AS levelname
+    FROM students
+    LEFT JOIN assessed
+        ON students.outcomeid = assessed.outcomeid
+        AND students.userid = assessed.assesseduserid
+        AND students.registryid = assessed.registryid
+        AND assessed.rn = 1
 )
 SELECT DISTINCT
-    courses.orgunitid,
-    orgunits.code AS coursecode,
-    orgunits.name AS coursename,
-    details.description AS standard,
-    details.notation AS shortcode,
-    COALESCE(levels.name,'Not Evaluated') AS levels,
-    users.username,
-    users.firstname,
-    users.lastname
-FROM registries
-LEFT JOIN courses
-    ON registries.registryid = courses.registryid
-INNER JOIN details
-    ON registries.outcomeid = details.outcomeid
-INNER JOIN brightspace_data_sets_[your_schema_id].organizationalunits_10_9_5 as orgunits
-    ON courses.orgunitid = orgunits.orgunitid
-INNER JOIN enrollments
-    ON orgunits.orgunitid = enrollments.orgunitid 
-INNER JOIN brightspace_data_sets_[your_schema_id].users_10_9_5 as users
-    ON enrollments.userid  = users.userid
-INNER JOIN tools
-    ON registries.outcomeid = tools.outcomeid
-    AND registries.registryid = tools.registryid
-LEFT JOIN assessed
-    ON registries.outcomeid = assessed.outcomeid
-    AND registries.registryid = assessed.registryid
-    AND assessed.assesseduserid = users.userid
-LEFT JOIN brightspace_data_sets_[your_schema_id].outcomesscaleleveldefinition_10_9_5 as levels
-    ON assessed.explicitlyenteredscalelevelid = levels.scalelevelid
+    orgunitid,
+    SUBSTRING(code,1,4) AS semester,
+    SUBSTRING(code,6,3) AS subject,
+    SUBSTRING(code,10,3) AS coursenum,
+    SUBSTRING(code,14,3) AS sectnum,
+    code AS coursecode,
+    name AS coursename,
+    notation AS shortcode,
+    description AS standard,
+    COALESCE(MAX(levelname) OVER (PARTITION BY orgunitid, outcomeid, userid), 'Not Evaluated') AS levels,
+    username AS netid,
+	lastname,
+	firstname
+FROM joined
 
