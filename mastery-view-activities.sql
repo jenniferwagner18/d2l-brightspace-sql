@@ -1,118 +1,123 @@
-/* Activities that have Standards attached and the level the student achieved for that activity (these levels feed into the overall level that is shown in Mastery View) */
+/* Activities that have Standards attached and the level the student achieved for that activity 
+(these levels feed into the overall level that is shown in Mastery View) */
 
-WITH registries AS (
+WITH students AS (
+    SELECT DISTINCT
+        ou.orgunitid,
+        ou.code,
+        ou.name AS coursename,
+        ou.type AS coursetype,
+        courses.registryid,
+        registries.outcomeid,
+        details.notation,
+        details.description,
+        enrollments.userid,
+        users.username,
+        users.firstname,
+        users.lastname
+    FROM [your_schema_id].outcomesinregistries_10_10_6 AS registries
+    JOIN [your_schema_id].outcomessetcourse_10_10_6 AS courses
+        ON registries.registryid = courses.registryid
+    JOIN [your_schema_id].outcomedetails_10_10_6 AS details
+        ON registries.outcomeid = details.outcomeid
+    JOIN [your_schema_id].userenrollments_10_10_6 AS enrollments
+        ON courses.orgunitid = enrollments.orgunitid
+    JOIN [your_schema_id].organizationalunits_10_10_6 AS ou
+        ON courses.orgunitid = ou.orgunitid
+    JOIN [your_schema_id].users_10_10_6 AS users
+        ON enrollments.userid = users.userid
+    WHERE enrollments.rolename = 'Student'
+),
+
+alignments AS (
     SELECT
-        outcomeid,
-        registryid
-    FROM
-        brightspace_data_sets_[your_schema_id].outcomesinregistries_10_9_5 
+        tools.registryid,
+        tools.outcomeid,
+        tools.objectid AS aligned_objectid,
+        tools.objecttype AS aligned_objecttype
+    FROM [your_schema_id].outcomealignmenttotoolobject_10_10_6 AS tools
+    WHERE tools.objectid IS NOT NULL
 ),
-courses AS (
-    SELECT
-        orgunitid,
-        registryid
-    FROM 
-        brightspace_data_sets_[your_schema_id].outcomessetcourse_10_9_5 
-),
-details AS (
-    SELECT
-        outcomeid,
-        description, 
-        notation
-    FROM
-        brightspace_data_sets_[your_schema_id].outcomedetails_10_9_5
-),
-enrollments AS (
-    SELECT
-        orgunitid,
-        rolename, 
-        userid
-    FROM
-        brightspace_data_sets_[your_schema_id].userenrollments_10_9_5
-    WHERE
-        rolename IN ('Student', 'Member')
-),
-tools AS (
-    SELECT  
-        objecttype,
-        objectid,
-        outcomeid,
-        registryid
-    FROM
-        brightspace_data_sets_[your_schema_id].outcomealignmenttotoolobject_10_9_5
-    WHERE
-        objectid IS NOT NULL
-),
+
 assessed AS (
     SELECT
-        outcomeid,
-        registryid,
-        explicitlyenteredscalelevelid,
-        assesseduserid,
-        alignedobjecttype,
-		alignedobjectid
-    FROM
-        brightspace_data_sets_[your_schema_id].outcomesdemonstrations_10_9_5
-    WHERE 
-        alignedobjecttype IN (1,2,3)
+        demo.outcomeid,
+        demo.assesseduserid,
+        demo.registryid,
+        demo.alignedobjectid,
+        demo.alignedobjecttype,
+        levels.name AS levelname,
+        ROW_NUMBER() OVER (
+            PARTITION BY demo.outcomeid, demo.assesseduserid, demo.registryid, demo.alignedobjectid, demo.alignedobjecttype
+            ORDER BY demo.assesseddate DESC
+        ) AS rn
+    FROM [your_schema_id].outcomesdemonstrations_10_10_6 AS demo
+    INNER JOIN [your_schema_id].outcomesscaleleveldefinition_10_10_6 AS levels
+        ON demo.explicitlyenteredscalelevelid = levels.scalelevelid
+    WHERE demo.alignedobjecttype IN (1,2,3)
+        AND demo.explicitlyenteredscalelevelid IS NOT NULL
 ),
+
 quizzes AS (
     SELECT
         qa.attemptid,
         qa.quizid,
         qa.orgunitid,
         qo.quizname
-    FROM brightspace_data_sets_[your_schema_id].quizattempts_10_9_5 AS qa
-	INNER JOIN brightspace_data_sets_[your_schema_id].quizobjects_10_9_5 AS qo
-	    ON qa.quizid = qo.quizid
+    FROM [your_schema_id].quizattempts_10_10_6 AS qa
+    INNER JOIN [your_schema_id].quizobjects_10_10_6 AS qo
+        ON qa.quizid = qo.quizid
         AND qa.orgunitid = qo.orgunitid
 )
 
 SELECT
-    courses.orgunitid AS orgunitid,
-    orgunits.code AS coursecode,
-    orgunits.name AS coursename,
-    details.description AS standard,
-    details.notation AS shortcode,
-    CASE WHEN tools.objecttype = 1 THEN 'Discussion'
-		WHEN tools.objecttype = 2 THEN 'Assignment'
-		WHEN tools.objecttype = 3 THEN 'Quiz'
-		ELSE 'N/A' 
-	END AS activitytype,
-	CASE WHEN tools.objecttype = 1 THEN discussions.name 
-		WHEN tools.objecttype = 2 THEN assignments.name
-		WHEN tools.objecttype = 3 THEN quizzes.quizname
-		ELSE 'N/A' 
-	END AS activityname,
-    COALESCE(levels.name,'Not Evaluated') AS levels,
-    users.username,
-    users.firstname,
-    users.lastname
+    s.orgunitid,
+    SUBSTRING(s.code,1,4) AS semester,
+    SUBSTRING(s.code,6,3) AS subject,
+    SUBSTRING(s.code,10,3) AS coursenum,
+    SUBSTRING(s.code,14,3) AS sectnum,
+    s.code AS coursecode,
+    s.coursename,
+    s.notation AS shortcode,
+    s.description AS standard,
+    COALESCE(a.levelname, 'Not Evaluated') AS levels,
+    CASE 
+        WHEN al.aligned_objecttype = 1 THEN 'Discussion'
+        WHEN al.aligned_objecttype = 2 THEN 'Assignment'
+        WHEN al.aligned_objecttype = 3 THEN 'Quiz'
+    END AS activitytype,
+    CASE 
+        WHEN al.aligned_objecttype = 1 THEN d.name
+        WHEN al.aligned_objecttype = 2 THEN asg.name
+        WHEN al.aligned_objecttype = 3 THEN q.quizname
+    END AS activityname,
+    s.username AS netid,
+    s.lastname,
+    s.firstname
 
-FROM registries
-LEFT JOIN courses
-    ON registries.registryid = courses.registryid
-LEFT JOIN details
-    ON registries.outcomeid = details.outcomeid
-LEFT JOIN tools
-    ON registries.outcomeid = tools.outcomeid
-    AND registries.registryid = tools.registryid
-INNER JOIN assessed
-    ON registries.outcomeid = assessed.outcomeid
-    AND registries.registryid = assessed.registryid
-LEFT JOIN brightspace_data_sets_[your_schema_id].outcomesscaleleveldefinition_10_9_5 as levels
-    ON assessed.explicitlyenteredscalelevelid = levels.scalelevelid
-INNER JOIN brightspace_data_sets_[your_schema_id].organizationalunits_10_9_5 as orgunits
-    ON courses.orgunitid = orgunits.orgunitid
-INNER JOIN brightspace_data_sets_[your_schema_id].users_10_9_5 as users
-    ON assessed.assesseduserid = users.userid
-INNER JOIN enrollments
-    ON orgunits.orgunitid = enrollments.orgunitid
-    AND assessed.assesseduserid = enrollments.userid
-LEFT JOIN brightspace_data_sets_[your_schema_id].discussiontopics_10_9_5 as discussions
-    ON CAST(assessed.alignedobjectid AS bigint) = discussions.topicid
-LEFT JOIN brightspace_data_sets_[your_schema_id].assignmentsummary_10_9_5 as assignments
-    ON CAST(assessed.alignedobjectid AS bigint) = assignments.dropboxid
-LEFT JOIN quizzes
-	ON CAST(assessed.alignedobjectid AS bigint) = quizzes.attemptid
-    AND orgunits.orgunitid = quizzes.orgunitid
+FROM students s
+JOIN alignments al
+    ON  s.registryid = al.registryid
+    AND s.outcomeid = al.outcomeid
+
+LEFT JOIN assessed a
+    ON s.outcomeid = a.outcomeid
+    AND s.userid = a.assesseduserid
+    AND s.registryid = a.registryid
+    AND al.aligned_objectid = a.alignedobjectid
+    AND al.aligned_objecttype = a.alignedobjecttype
+    AND a.rn = 1
+
+LEFT JOIN [your_schema_id].discussiontopics_10_10_6 AS d
+    ON CAST(al.aligned_objectid AS BIGINT) = d.topicid
+
+LEFT JOIN [your_schema_id].assignmentsummary_10_10_6 AS asg
+    ON CAST(al.aligned_objectid AS BIGINT) = asg.dropboxid
+
+LEFT JOIN quizzes q
+    ON CAST(al.aligned_objectid AS BIGINT) = q.attemptid
+    AND s.orgunitid = q.orgunitid
+
+WHERE (al.aligned_objecttype = 1 AND d.isdeleted = FALSE)
+    OR (al.aligned_objecttype = 2 AND asg.isdeleted = FALSE)
+    OR (al.aligned_objecttype = 3)
